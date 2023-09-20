@@ -1,0 +1,46 @@
+{
+    "containers": [
+        {
+            "name": "maptest",
+            "port": 14,
+            "maps": [
+                "TrCTF-TreacherousPass",
+                "TrCTF-Eclipse",
+                "TrCTF-Polaris",
+                "TrCTF-Ascent",
+                "TrCTF-Oceanus",
+                "TrCTF-Meridian",
+                "TrCTFBlitz-AirArena",
+                "TrCTFBlitz-MazeRunner",
+                "TrCTF-Andromeda",
+                "TrCTF-DesertedValley2",
+                "TrArena-Arenaxd",
+                "TrArena-ElysianBattleground"
+            ]
+        },
+        {
+            "name": "pugsettings",
+            "port": 0,
+            "maps": [
+                "TrCTF-Katabatic",
+                "TrCTF-ArxNovena",
+                "TrCTF-DangerousCrossing",
+                "TrCTF-Drydock",
+                "TrCTF-Sunstar",
+                "TrCTF-Permafrost",
+                "TrCTF-Tartarus",
+                "TrCTF-Blues",
+                "TrCTF-Oceanus"
+            ]
+        },
+        {
+            "name": "2v2settings",
+            "port": 8,
+            "maps": [
+                "TrArena-WalledIn",
+                "TrArena-LavaArena",
+                "TrArena-ElysianBattleground"
+            ]
+        }
+    ]
+}

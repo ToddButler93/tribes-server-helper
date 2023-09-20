@@ -1,0 +1,6 @@
+{
+    "TOKEN": "BOT TOKEN HERE",
+    "DISCORD_ROLE": "Discord role which will have permissions to use slash commands",
+    "SERVER_TO_WATCH": "Server name which appears in the Tribes Ascend server browser",
+    "DEFAULT_SERVER": "maptest"
+}

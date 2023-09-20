@@ -1,12 +1,10 @@
-Ultra basic bot for running a single docker tribes server.
+Ultra basic bot for managing docker based tribes servers on ubuntu.
 
 ### How to Run
+Tested on Ubuntu 20.04
+
 nohup python3 discord_bot.py > output.log
 
-### config.json
-{
-    "TOKEN": "BOT TOKEN HERE",
-    "CHANNEL_ID": CHANNEL ID HERE,
-    "PUGBOT_ID": PUGBOT ID HERE,
-    "SERVER_ID": SERVER ID HERE
-}
+### TODO
+
+- Error handling

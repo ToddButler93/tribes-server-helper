@@ -9,110 +9,134 @@ import asyncio
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='/', intents=intents)
 
-map_rotation = [
-    "TrCTF-TreacherousPass",
-    "TrCTF-Eclipse",
-    "TrCTF-Polaris",
-    "TrCTF-Ascent",
-    "TrCTF-Oceanus",
-    "TrCTF-Meridian",
-    "TrCTFBlitz-AirArena",
-    "TrCTFBlitz-MazeRunner",
-    "TrCTF-Andromeda",
-    "TrCTF-DesertedValley2",
-    "TrArena-Arenaxd",
-    "TrArena-ElysianBattleground"
-]
+with open('server_data.json') as f:
+    containers_data = json.load(f)
+    containers = containers_data.get('containers', [])
 
 with open('config.json') as f:
     data = json.load(f)
     token = data["TOKEN"]
-    channel_id = data["CHANNEL_ID"]
-    pugbot_id = data["PUGBOT_ID"]
-    server_id = data["SERVER_ID"]
+    watch_container = data["SERVER_TO_WATCH"]
+    role_required = data["DISCORD_ROLE"]
+    default_server = data["DEFAULT_SERVER"]
 
-container_name = "taserver_maptest_14"
+def has_role(member, role_name):
+    """
+    Check if a member has a specific role.
+    """
+    for role in member.roles:
+        if role.name == role_name:  # You can also use role.id if you have the role's ID.
+            return True
+    return False
 
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name} - {bot.user.id}')
+    await bot.tree.sync()
     bot.loop.create_task(update_activity())
 
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return  # Ignore messages from bots
+@bot.tree.command(name="servers",description="Lists available containers")
+async def slash_list_servers(interaction:discord.Interaction):
+
+    member = interaction.user
+    if not any(role.name == role_required for role in member.roles):
+        await interaction.response.send_message("You do not have the required role to use this command.")
+        return
     
-    if message.channel.id == channel_id and message.content.startswith('!'):
-        content = message.content[1:]  # Remove the '!' from the message
-        await process_command(message, content)
+    server_list = "\n".join([c["name"] for c in containers])
+    await interaction.response.send_message(f"Available containers:\n{server_list}")
+
+
+@bot.tree.command(name='restart', description='Restart a server container')
+async def slash_restart(interaction:discord.Interaction, container_name: str = default_server):
+
+    member = interaction.user
+    if not any(role.name == role_required for role in member.roles):
+        await interaction.response.send_message("You do not have the required role to use this command.")
+        return
+
+    # Check if the specified container name is valid
+    container_info = next((c for c in containers if c["name"] == container_name), None)
     
-    await bot.process_commands(message)  # Process other commands
-
-async def process_command(message, content):
-    commands_mapping = {
-        'restart': restart_command,
-        'help': help_command,
-        'setmap': setmap_command,
-        'listmaps': listmaps_command,  # Add the new command here
-    }
-
-
-    command_parts = content.split(' ')
-    command_name = command_parts[0]
+    if not container_info:
+        await interaction.response.send_message(f"Container '{container_name}' not found.")
+        return
     
-    if command_name in commands_mapping:
-        command_function = commands_mapping[command_name]
-        await command_function(message, command_parts[1:])
-    else:
-        await message.channel.send("Unknown command. Use `!help` for a list of commands.")
+    port = container_info['port']
+    
+    await interaction.response.send_message(f"Container 'taserver_{container_name}_{port}' will be restarted.")
 
-async def restart_command(message, args):
-    docker_restart_command = ['docker', 'restart', container_name]
+    docker_restart_command = ['docker', 'restart', f"taserver_{container_name}_{port}"]
     subprocess.run(docker_restart_command)
     
-    await message.channel.send(f"Container '{container_name}' has been restarted.")
-
-async def help_command(message, args):
-    help_text = (
-        "Available commands:\n"
-        "!restart: Restart server.\n"
-        "!listmaps: Shows map rotation index.\n"
-        "!setmap [index]: Set the map rotation based on index."
-        )
-    await message.channel.send(help_text)
-
-async def listmaps_command(message, args):
-
-    map_list = "\n".join([f"{index}: {map_name}" for index, map_name in enumerate(map_rotation)])
-    await message.channel.send("Available maps:\n" + map_list)
+    await interaction.followup.send("Container has been restarted.")
 
 
-async def setmap_command(message, args):
+@bot.tree.command(name='stop', description='Stop a server container')
+async def slash_stop(interaction:discord.Interaction, container_name: str = default_server):
+    member = interaction.user
+    if not any(role.name == role_required for role in member.roles):
+        await interaction.response.send_message("You do not have the required role to use this command.")
+        return
+    # Check if the specified container name is valid
+    container_info = next((c for c in containers if c["name"] == container_name), None)
 
-    if len(args) < 1 or len(args) > 1:
-        await message.channel.send("Usage: `!setmap [map_index]`")
+    if not container_info:
+        await interaction.response.send_message(f"Container '{container_name}' not found.")
         return
     
-    map_index = int(args[0])
+    port = container_info['port']
 
-    docker_ps_command = ['docker', 'ps', '--format', '{{.Names}}']
-    running_containers = subprocess.run(docker_ps_command, capture_output=True, text=True).stdout.split('\n')
-    running_containers = [name.strip() for name in running_containers if name.strip()]
+    await interaction.response.send_message(f"Container '{container_name}' will be stopped.")
 
+    docker_stop_command = ['docker', 'stop', f"taserver_{container_name}_{port}"]
+    subprocess.run(docker_stop_command)
+    
+    await interaction.followup.send(f"Container '{container_name}' has been stopped.")
 
-    if container_name not in running_containers:
-        await message.channel.send(f"Container '{container_name}' is not running.")
+@bot.tree.command(name='listmaps', description='List maps for a server container')
+async def slash_listmaps(interaction:discord.Interaction, container_name: str = default_server):
+    member = interaction.user
+    if not any(role.name == role_required for role in member.roles):
+        await interaction.response.send_message("You do not have the required role to use this command.")
+        return
+    # Check if the specified container name is valid
+    container_info = next((c for c in containers if c["name"] == container_name), None)
+    
+    if not container_info:
+        await interaction.response.send_message(f"Container '{container_name}' not found.")
         return
 
-    if map_index < 0 or map_index >= len(map_rotation):
-        map_list = "\n".join([f"{index}: {map_name}" for index, map_name in enumerate(map_rotation)])
-        await message.channel.send(f"Invalid map index. Choose a map from the following list:\n{map_list}")
+    map_rotation_for_container = container_info.get("maps", [])
+    
+    map_list = "\n".join([f"{index}: {map_name}" for index, map_name in enumerate(map_rotation_for_container)])
+    await interaction.response.send_message(f"Available maps for '{container_name}':\n{map_list}")
+
+@bot.tree.command(name='setmap', description='Set a map for a server container')
+async def slash_setmap(interaction:discord.Interaction, map_index: int, container_name: str = default_server):
+    
+    member = interaction.user
+    if not any(role.name == role_required for role in member.roles):
+        await interaction.response.send_message("You do not have the required role to use this command.")
+        return
+    # Check if the specified container name is valid
+    container_info = next((c for c in containers if c["name"] == container_name), None)
+
+    if not container_info:
+        await interaction.response.send_message(f"Container '{container_name}' not found.")
+        return
+    
+    port = container_info['port']
+    map_rotation_for_container = container_info.get("maps", [])
+
+    if map_index < 0 or map_index >= len(map_rotation_for_container):
+        map_list = "\n".join([f"{index}: {map_name}" for index, map_name in enumerate(map_rotation_for_container)])
+        await interaction.response.send_message(f"Invalid map index. Choose a map from the following list for '{container_name}':\n{map_list}")
         return
 
-    # Modify the maprotationstate.json data
+    # Modify the maprotationstate.json data for the specified container
     new_map_index = map_index
     new_map_override = ""
 
@@ -122,29 +146,36 @@ async def setmap_command(message, args):
     }
 
     # Write the map rotation state to a file on the host machine
-    file_path = '/home/sandraker/maprotationstate.json'
+    file_path = f'/home/sandraker/{container_name}_maprotationstate.json'
     with open(file_path, 'w') as f:
         json.dump(map_rotation_state, f)
 
+    await interaction.response.send_message(f"Map set to: {map_rotation_for_container[map_index]}. Container '{container_name}' will be restarted.")
+
     # Copy the file into the Docker container
-    docker_cp_command = ['docker', 'cp', file_path, f'{container_name}:/app/taserver/data/maprotationstate.json']
+    docker_cp_command = ['docker', 'cp', file_path, f'taserver_{container_name}_{port}:/app/taserver/data/maprotationstate.json']
     subprocess.run(docker_cp_command)
 
-    # Restart the selected Docker container
-    docker_restart_command = ['docker', 'restart', container_name]
+    # Restart the specified Docker container
+    docker_restart_command = ['docker', 'restart', f"taserver_{container_name}_{port}"]
     subprocess.run(docker_restart_command)
 
-    await message.channel.send(f"Map set to: {map_rotation[map_index]}. Container '{container_name}' will be restarted.")
+    await interaction.followup.send(f"{container_name} has been restarted on {map_rotation_for_container[map_index]}.")
+
+@bot.event
+async def on_slash_command_error(ctx, error):
+    await ctx.send(f"An error occurred: {str(error)}")
 
 async def update_activity():
     while True:
         async with aiohttp.ClientSession() as session:
+            
             async with session.get("http://ta.dodgesdomain.com:9080/detailed_status") as response:
                 if response.status == 200:
                     html_content = await response.text()
                     num_players = 0
-                    # Check if the "Unreleased Map Testing" server is present in the HTML
-                    if '"name": "Unreleased Map Testing"' in html_content:
+                    # Check if the watched server is present in the HTML
+                    if f'"name": "{watch_container}"' in html_content:
                         # Extract the list of players within the "players" array
                         players_match = re.search(r'"players": \[([^]]+)\]', html_content)
                         if players_match:
@@ -157,6 +188,7 @@ async def update_activity():
 
                     activity_type=discord.ActivityType.watching
 
+                    # TODO Allow a few configurable strings/activity types/cutoffs
                     if num_players == 0:
                         activity_type=discord.ActivityType.playing
                         activity_name = "UDK 2011"
