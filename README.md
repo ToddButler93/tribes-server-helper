@@ -7,4 +7,4 @@ nohup python3 discord_bot.py > output.log
 
 ### TODO
 
-- Error handling
+- Error handling for docker containers not existing
