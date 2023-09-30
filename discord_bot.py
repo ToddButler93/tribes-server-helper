@@ -243,7 +243,7 @@ def SelectMap(container_info):
             await interaction.followup.send(embed=embed)
 
     class SelectMapView(discord.ui.View):
-        def __init__(self, timeout = 25):
+        def __init__(self, timeout = 15):
             super().__init__(timeout=timeout)
             self.add_item(Select())
     
@@ -283,21 +283,11 @@ async def slash_setmap(interaction: discord.Interaction, server: app_commands.Ch
     )
 
     await interaction.response.send_message(embed=embed, view=map_view)
-    
-    # Wait for the user to make a selection
-    try:
-        interaction = await bot.wait_for("select_option", check=lambda i: i.component.custom_id == "map_index", timeout=60)
-    except asyncio.TimeoutError:
-        # Handle timeout if the user doesn't make a selection
-        await interaction.followup.send("Map selection timed out.", ephemeral=True)
-        return
 
 @bot.event
 async def on_slash_command_error(ctx, error):
     embed = discord.Embed(title="Error", description=str(error), color=discord.Color.red())
     await ctx.send(embed=embed)
-
-
 
 async def update_activity():
     while True:
