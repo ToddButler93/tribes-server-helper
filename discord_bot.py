@@ -1,5 +1,7 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
+from typing import List
 import json
 import subprocess
 import re
@@ -13,9 +15,15 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 
 role_error_string = "You do not have the required role to use this command."
 
+mapchoice = 0
+
 with open('server_data.json') as f:
     containers_data = json.load(f)
     containers = containers_data.get('containers', [])
+
+    container_choices = []
+    for container in containers:
+        container_choices.append(app_commands.Choice(name=container["label"], value=container["name"]))
 
 with open('config.json') as f:
     data = json.load(f)
@@ -47,7 +55,6 @@ def remove_prefix(map_name):
     map_name = re.sub(r"([a-zA-Z0-9])([A-Z0-9])", r"\1 \2", map_name)
     return map_name
 
-
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name} - {bot.user.id}')
@@ -63,15 +70,49 @@ async def slash_list_servers(interaction:discord.Interaction):
         await interaction.response.send_message(embed=embed)
         return
     
-    server_list = "\n".join([c["name"] for c in containers])
+    server_list = "\n".join([c["label"] for c in containers])
     
     embed = discord.Embed(title="Available Containers", description=server_list, color=discord.Color.green())
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="status",description="Lists online game servers")
+async def slash_status(interaction:discord.Interaction):
+
+    member = interaction.user
+    if not any(role.name == role_required for role in member.roles):
+        embed = discord.Embed(title="Error", description=role_error_string, color=discord.Color.red())
+        await interaction.response.send_message(embed=embed)
+        return
+
+    try:
+        # Use the subprocess module to run the "docker ps" command
+        process = subprocess.Popen(["docker", "ps", "--format", "{{.Names}}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate()
+        
+        if stderr:
+            raise Exception(stderr)
+        
+        # Use a regular expression to filter container names starting with 'taserver_' and remove the trailing "_[number]"
+        container_names = [re.sub(r'_\d+$', '', line.strip()) for line in stdout.splitlines() if line.startswith("taserver_")]
+        
+        if not container_names:
+            embed = discord.Embed(title="No Servers Online", description='No running servers found.', color=discord.Color.orange())
+            await interaction.response.send_message(embed=embed)
+        else:
+            # Create a formatted message with the container names
+            container_list = "\n".join(container_names)
+            embed = discord.Embed(title="Running Servers", description=container_list, color=discord.Color.green())
+            await interaction.response.send_message(embed=embed)
+    
+    except Exception as e:
+        await interaction.response.send_message(f"An error occurred: {str(e)}")
 
 @bot.tree.command(name='restart', description='Restart a game server')
-async def slash_restart(interaction:discord.Interaction, container_name: str = default_server):
-    
+@app_commands.choices(server=container_choices)
+async def slash_restart(interaction:discord.Interaction, server: app_commands.Choice[str] = default_server):
+    if (server != default_server):
+        server = server.value
+    print (server)
     member = interaction.user
     if not any(role.name == role_required for role in member.roles):
         embed = discord.Embed(title="Error", description=role_error_string, color=discord.Color.red())
@@ -79,28 +120,31 @@ async def slash_restart(interaction:discord.Interaction, container_name: str = d
         return
 
     # Check if the specified container name is valid
-    container_info = next((c for c in containers if c["name"] == container_name), None)
+    container_info = next((c for c in containers if c["name"] == server), None)
     
     if not container_info:
-        embed = discord.Embed(title="Error", description=f"Server {container_name} not found.", color=discord.Color.red())
+        embed = discord.Embed(title="Error", description=f"Server {server} not found.", color=discord.Color.red())
         await interaction.response.send_message(embed=embed)
         return
     
     port = container_info['port']
     
-    embed = discord.Embed(title="Restarting Server", description=f"Server {container_name} will be restarted.", color=discord.Color.blue())
+    embed = discord.Embed(title="Restarting Server", description=f"Server {container_info['label']} will be restarted.", color=discord.Color.blue())
     await interaction.response.send_message(embed=embed)
 
-    docker_restart_command = ['docker', 'restart', f"taserver_{container_name}_{port}"]
+    docker_restart_command = ['docker', 'restart', f"taserver_{server}_{port}"]
     subprocess.run(docker_restart_command)
     
     
-    embed = discord.Embed(title=f"Server {container_name} has been restarted.", color=discord.Color.green())
+    embed = discord.Embed(title=f"Server {container_info['label']} has been restarted.", color=discord.Color.green())
     await interaction.followup.send(embed=embed)
 
 
 @bot.tree.command(name='stop', description='Stop a server')
-async def slash_stop(interaction:discord.Interaction, container_name: str = default_server):
+@app_commands.choices(server=container_choices)
+async def slash_stop(interaction:discord.Interaction, server: app_commands.Choice[str] = default_server):
+    if (server != default_server):
+        server = server.value
     member = interaction.user
     if not any(role.name == role_required for role in member.roles):
         embed = discord.Embed(title="Error", description=role_error_string, color=discord.Color.red())
@@ -108,29 +152,31 @@ async def slash_stop(interaction:discord.Interaction, container_name: str = defa
         return
     
     # Check if the specified container name is valid
-    container_info = next((c for c in containers if c["name"] == container_name), None)
+    container_info = next((c for c in containers if c["name"] == server), None)
 
     if not container_info:
-        embed = discord.Embed(title="Error", description=f"Server {container_name} not found.", color=discord.Color.red())
+        embed = discord.Embed(title="Error", description=f"Server {server} not found.", color=discord.Color.red())
         await interaction.response.send_message(embed=embed)
         return
     
     port = container_info['port']
 
-    embed = discord.Embed(title="Stopping Server", description=f"Server {container_name} will be stopped.", color=discord.Color.orange())
+    embed = discord.Embed(title="Stopping Server", description=f"Server {container_info['label']} will be stopped.", color=discord.Color.orange())
     await interaction.response.send_message(embed=embed)
 
-    docker_stop_command = ['docker', 'stop', f"taserver_{container_name}_{port}"]
+    docker_stop_command = ['docker', 'stop', f"taserver_{server}_{port}"]
     subprocess.run(docker_stop_command)
     
     
-    embed = discord.Embed(title="Server stopped", description=f"Server {container_name} has been stopped.", color=discord.Color.green())
+    embed = discord.Embed(title="Server stopped", description=f"Server {container_info['label']} has been stopped.", color=discord.Color.green())
     await interaction.followup.send(embed=embed)
 
 
-
 @bot.tree.command(name='listmaps', description='List maps for a game server')
-async def slash_listmaps(interaction:discord.Interaction, container_name: str = default_server):
+@app_commands.choices(server=container_choices)
+async def slash_listmaps(interaction:discord.Interaction, server: app_commands.Choice[str] = default_server):
+    if (server != default_server):
+        server = server.value
     member = interaction.user
     if not any(role.name == role_required for role in member.roles):
         embed = discord.Embed(title="Error", description=role_error_string, color=discord.Color.red())
@@ -138,80 +184,120 @@ async def slash_listmaps(interaction:discord.Interaction, container_name: str = 
         return
     
     # Check if the specified container name is valid
-    container_info = next((c for c in containers if c["name"] == container_name), None)
+    container_info = next((c for c in containers if c["name"] == server), None)
     
     if not container_info:
-        embed = discord.Embed(title="Error", description=f"Server {container_name} not found.", color=discord.Color.red())
+        embed = discord.Embed(title="Error", description=f"Server {container_info['label']} not found.", color=discord.Color.red())
         await interaction.response.send_message(embed=embed)
         return
 
     map_rotation_for_container = container_info.get("maps", [])
     
     if not map_rotation_for_container:
-        embed = discord.Embed(title="Maps for Server", description=f"No maps found for {container_name}.", color=discord.Color.blue())
+        embed = discord.Embed(title="Maps for Server", description=f"No maps found for {container_info['label']}.", color=discord.Color.blue())
         await interaction.response.send_message(embed=embed)
         return
 
     # Create a table-like structure for the list of maps
     map_table = "\n".join([f"{index + 1}. {remove_prefix(map_name)}" for index, map_name in enumerate(map_rotation_for_container)])
     
-    embed = discord.Embed(title=f"Maps for Server {container_name}", description=map_table, color=discord.Color.green())
+    embed = discord.Embed(title=f"Maps for {container_info['label']}", description=map_table, color=discord.Color.green())
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name='setmap', description='Set a map for a server')
-async def slash_setmap(interaction: discord.Interaction, map_index: int, container_name: str = default_server):
+def SelectMap(container_info):
+
+    class Select(discord.ui.Select):
+        def __init__(self): # the decorator that lets you specify the properties of the select menu
+            options=[
+                discord.SelectOption(label=str(map_rotation_for_container[index]), value=index) 
+                for index in range(len(map_rotation_for_container))
+            ]
+            super().__init__(placeholder="Which map should the server be changed to?",options=options)
+        
+        async def callback(self, interaction: discord.Interaction): # the function called when the user is done selecting options
+            mapchoice = self.values[0]
+            
+            map_index = mapchoice
+
+            new_map_override = ""
+
+            map_rotation_state = {
+                "next_map_index": int(map_index),
+                "next_map_override": new_map_override
+            }
+
+            file_path = f"/home/sandraker/{container_info['name']}_maprotationstate.json"
+            with open(file_path, 'w') as f:
+                json.dump(map_rotation_state, f)
+
+            embed = discord.Embed(title=f"Map set to: {str(map_rotation_for_container[int(map_index)])}", description=f"{container_info['label']} will be restarted.", color=discord.Color.blue())
+            await interaction.response.send_message(embed=embed)
+
+            docker_cp_command = ['docker', 'cp', file_path, f"taserver_{container_info['name']}_{port}:/app/taserver/data/maprotationstate.json"]
+            subprocess.run(docker_cp_command)
+
+            docker_restart_command = ['docker', 'restart', f"taserver_{container_info['name']}_{port}"]
+            subprocess.run(docker_restart_command)
+
+            embed = discord.Embed(title="Server has restarted", description=f"{map_rotation_for_container[int(map_index)]} for {container_info['label']}.", color=discord.Color.green())
+            await interaction.followup.send(embed=embed)
+
+    class SelectMapView(discord.ui.View):
+        def __init__(self, timeout = 25):
+            super().__init__(timeout=timeout)
+            self.add_item(Select())
     
+    
+    port = container_info['port']
+    map_rotation_for_container = container_info.get("maps", [])
+            
+    selectView = SelectMapView()
+
+    return selectView
+
+@bot.tree.command(name='setmap', description='Set a map for a server')
+@app_commands.choices(server=container_choices)
+async def slash_setmap(interaction: discord.Interaction, server: app_commands.Choice[str] = default_server):
+    if (server != default_server):
+        server = server.value
+
     member = interaction.user
     if not any(role.name == role_required for role in member.roles):
         embed = discord.Embed(title="Error", description=role_error_string, color=discord.Color.red())
         await interaction.response.send_message(embed=embed)
         return
     
-    container_info = next((c for c in containers if c["name"] == container_name), None)
+    container_info = next((c for c in containers if c["name"] == server), None)
 
     if not container_info:
-        embed = discord.Embed(title="Error", description=f"Server {container_name} not found.", color=discord.Color.red())
+        embed = discord.Embed(title="Error", description=f"Server {server} not found.", color=discord.Color.red())
         await interaction.response.send_message(embed=embed)
         return
     
-    port = container_info['port']
-    map_rotation_for_container = container_info.get("maps", [])
+    map_view = SelectMap(container_info)
 
-    if map_index < 0 or map_index >= len(map_rotation_for_container):
-        map_list = "\n".join([f"{index}: {map_name}" for index, map_name in enumerate(map_rotation_for_container)])
-        embed = discord.Embed(title="Error", description=f"Invalid map index. Choose a map from the following list for {container_name}:\n{map_list}", color=discord.Color.red())
-        await interaction.response.send_message(embed=embed)
+    embed = discord.Embed(
+        title=f"Select a map for {container_info['label']}",
+        description="Choose a map from the dropdown menu below.",
+        color=discord.Color.blue(),
+    )
+
+    await interaction.response.send_message(embed=embed, view=map_view)
+    
+    # Wait for the user to make a selection
+    try:
+        interaction = await bot.wait_for("select_option", check=lambda i: i.component.custom_id == "map_index", timeout=60)
+    except asyncio.TimeoutError:
+        # Handle timeout if the user doesn't make a selection
+        await interaction.followup.send("Map selection timed out.", ephemeral=True)
         return
-
-    new_map_index = map_index
-    new_map_override = ""
-
-    map_rotation_state = {
-        "next_map_index": new_map_index,
-        "next_map_override": new_map_override
-    }
-
-    file_path = f'/home/sandraker/{container_name}_maprotationstate.json'
-    with open(file_path, 'w') as f:
-        json.dump(map_rotation_state, f)
-
-
-    embed = discord.Embed(title=f"Map set to: {map_rotation_for_container[map_index]}", description=f"Server {container_name} will be restarted.", color=discord.Color.blue())
-    await interaction.response.send_message(embed=embed)
-
-    docker_cp_command = ['docker', 'cp', file_path, f'taserver_{container_name}_{port}:/app/taserver/data/maprotationstate.json']
-    subprocess.run(docker_cp_command)
-
-    docker_restart_command = ['docker', 'restart', f"taserver_{container_name}_{port}"]
-    subprocess.run(docker_restart_command)
-
-    embed = discord.Embed(title="Server has restarted", description=f"{map_rotation_for_container[map_index]} for {container_name}.", color=discord.Color.green())
-    await interaction.followup.send(embed=embed)
 
 @bot.event
 async def on_slash_command_error(ctx, error):
     embed = discord.Embed(title="Error", description=str(error), color=discord.Color.red())
     await ctx.send(embed=embed)
+
+
 
 async def update_activity():
     while True:

@@ -2,6 +2,7 @@
     "containers": [
         {
             "name": "maptest",
+            "label": "Map Testing",
             "port": 14,
             "maps": [
                 "TrCTF-TreacherousPass",
@@ -20,6 +21,7 @@
         },
         {
             "name": "pugsettings",
+            "label": "PUG",
             "port": 0,
             "maps": [
                 "TrCTF-Katabatic",
@@ -35,6 +37,7 @@
         },
         {
             "name": "2v2settings",
+            "label": "2v2",
             "port": 8,
             "maps": [
                 "TrArena-WalledIn",
