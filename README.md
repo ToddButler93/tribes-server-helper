@@ -3,7 +3,13 @@ Ultra basic bot for managing docker based tribes servers on ubuntu.
 ### How to Run
 Tested on Ubuntu 20.04
 
-nohup python3 discord_bot.py > output.log
+```pip install -r requirements.txt```
+
+```python3 ./bot/server_helper_bot.py```
+
+or
+
+```nohup python3 ./bot/server_helper_bot.py > ./logs/bot.log```
 
 ### TODO
 
