@@ -14,8 +14,7 @@
                 "TrCTFBlitz-AirArena",
                 "TrCTFBlitz-MazeRunner",
                 "TrCTF-Andromeda",
-                "TrCTF-DesertedValley2",
-                "TrArena-Arenaxd",
+                "TrArena-Ruins",
                 "TrArena-ElysianBattleground"
             ]
         },
@@ -27,12 +26,10 @@
                 "TrCTF-Katabatic",
                 "TrCTF-ArxNovena",
                 "TrCTF-DangerousCrossing",
-                "TrCTF-Drydock",
                 "TrCTF-Sunstar",
-                "TrCTF-Permafrost",
                 "TrCTF-Tartarus",
-                "TrCTF-Blues",
-                "TrCTF-Oceanus"
+                "TrCTF-Oceanus",
+                "TrCTF-Ascent"
             ]
         },
         {
@@ -40,9 +37,10 @@
             "label": "2v2",
             "port": 8,
             "maps": [
-                "TrArena-WalledIn",
-                "TrArena-LavaArena",
-                "TrArena-ElysianBattleground"
+                "TrArena-Walledin",
+                "TrArena-ElysianBattleground",
+                "TrArena-Ruins",
+                "TrArena-Lavaarena"
             ]
         }
     ]
