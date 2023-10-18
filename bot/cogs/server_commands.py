@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from config import SERVER_TO_WATCH, DISCORD_ROLE, DEFAULT_SERVER, data_dir, container_choices, containers 
+from config import DISCORD_ROLE, DEFAULT_SERVER, container_choices, containers 
 from utils import has_role
 import subprocess
 import re

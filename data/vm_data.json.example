@@ -1,0 +1,9 @@
+{
+    "VM_MANAGEMENT_ROLE": "",
+    "AZ_TENANT_ID": "",
+    "AZ_CLIENT_ID": "",
+    "AZ_CLIENT_SECRET": "",
+    "AZ_SUBSCRIPTION_ID": "",
+    "AZ_RESOURCE_GROUP_NAME": "",
+    "AZ_VM_NAME": ""
+}

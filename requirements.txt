@@ -1,2 +1,4 @@
 discord.py
 aiohttp
+azure-identity
+azure-mgmt-compute

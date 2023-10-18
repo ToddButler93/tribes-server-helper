@@ -5,7 +5,8 @@ import aiohttp
 import asyncio
 from cogs.server_commands import ServerCommandsCog
 from cogs.map_commands import MapCommandsCog
-from config import TOKEN, SERVER_TO_WATCH, DISCORD_ROLE
+from cogs.vm_commands import VMCommandsCog
+from config import TOKEN, SERVER_TO_WATCH
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -20,6 +21,7 @@ async def on_ready():
     # Load Cogs (command modules)
     await bot.add_cog(ServerCommandsCog(bot))
     await bot.add_cog(MapCommandsCog(bot))
+    await bot.add_cog(VMCommandsCog(bot))
     
     await bot.tree.sync()
     # Start background tasks
